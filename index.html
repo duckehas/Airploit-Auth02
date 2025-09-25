@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Secure Key Redemption</title>
+<style>
+body { margin:0; font-family:'Segoe UI', sans-serif; background:#2f2f2f; color:#ddd; overflow:hidden; }
+canvas { position:fixed; top:0; left:0; z-index:-1; }
+.container { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:#4a4a4a; padding:50px 40px; border-radius:16px; box-shadow:0 20px 40px rgba(0,0,0,0.5); text-align:center; width:360px; max-width:90%; backdrop-filter: blur(6px); border:1px solid #666; }
+.container h2 { font-size:1.8em; margin-bottom:25px; font-weight:600; color:#eee; }
+input { width:100%; padding:14px 15px; margin-bottom:15px; border:1px solid #888; border-radius:12px; font-size:1em; background:#5a5a5a; color:#eee; box-sizing:border-box; }
+input:focus { border-color:#a366ff; box-shadow:0 0 8px rgba(163,102,255,0.4); outline:none; }
+.button-group { display:flex; gap:10px; justify-content:space-between; width:100%; }
+button { flex:1; padding:14px 0; border:none; border-radius:12px; background: linear-gradient(135deg,#8e44ad,#a366ff); color:#fff; font-weight:600; font-size:1em; cursor:pointer; transition: all 0.3s ease; }
+button:hover { background: linear-gradient(135deg,#7a33a0,#8e44ad); box-shadow:0 6px 15px rgba(142,68,173,0.4); }
+#timer { margin-top:20px; font-weight:600; font-size:1.1em; color:#ccc; }
+#countdownBox { position:fixed; top:20px; right:20px; background:linear-gradient(135deg,#8e44ad,#a366ff); color:#fff; padding:15px 20px; border-radius:12px; box-shadow:0 6px 20px rgba(0,0,0,0.4); font-weight:600; display:none; z-index:10; font-family:'Segoe UI', sans-serif; }
+#downloadBtn { display:none; margin-top:20px; width:100%; padding:14px; border:none; border-radius:12px; font-weight:600; font-size:1em; background:linear-gradient(135deg,#3498db,#6a5aff); color:#fff; cursor:pointer; transition:all 0.3s ease; }
+#downloadBtn:hover { background:linear-gradient(135deg,#2e86c1,#594fd1); }
+</style>
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+
+<div class="container">
+  <h2>Redeem Your Key</h2>
+  <input type="text" id="keyInput" placeholder="Enter your key" />
+  <div class="button-group">
+    <button id="redeemBtn">Redeem</button>
+    <button id="checkBtn">Check Time</button>
+  </div>
+  <button id="downloadBtn">Go to Download</button>
+  <div id="timer"></div>
+</div>
+
+<div id="countdownBox"></div>
+
+<script>
+// ===== Prevent right-click & dev tools =====
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('keydown', e => {
+  if(e.key === "F12" || (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(e.key.toUpperCase())) || (e.ctrlKey && e.key === 'U')) e.preventDefault();
+});
+
+// ===== Hardcoded keys (first 20 shown; repeat to 100 keys) =====
+const hardcodedKeys = {
+  "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6": { redeemed:false, redeemed_at:null },
+  "Q1w2E3r4T5y6U7i8O9p0A1s2D3f4G5h6": { redeemed:false, redeemed_at:null },
+  "Z1x2C3v4B5n6M7l8K9j0H1g2F3d4S5a6": { redeemed:false, redeemed_at:null },
+  "L1m2N3o4P5q6R7s8T9u0V1w2X3y4Z5a6": { redeemed:false, redeemed_at:null },
+  "B1c2D3e4F5g6H7i8J9k0L1m2N3o4P5q6": { redeemed:false, redeemed_at:null },
+  "R1s2T3u4V5w6X7y8Z9a0B1c2D3e4F5g6": { redeemed:false, redeemed_at:null },
+  "H1i2J3k4L5m6N7o8P9q0R1s2T3u4V5w6": { redeemed:false, redeemed_at:null },
+  "X1y2Z3a4B5c6D7e8F9g0H1i2J3k4L5m6": { redeemed:false, redeemed_at:null },
+  "P1q2R3s4T5u6V7w8X9y0Z1a2B3c4D5e6": { redeemed:false, redeemed_at:null },
+  "F1g2H3i4J5k6L7m8N9o0P1q2R3s4T5u6": { redeemed:false, redeemed_at:null },
+  "A2b3C4d5E6f7G8h9I0j1K2l3M4n5O6p7": { redeemed:false, redeemed_at:null },
+  "Q2w3E4r5T6y7U8i9O0p1A2s3D4f5G6h7": { redeemed:false, redeemed_at:null },
+  "Z2x3C4v5B6n7M8l9K0j1H2g3F4d5S6a7": { redeemed:false, redeemed_at:null },
+  "L2m3N4o5P6q7R8s9T0u1V2w3X4y5Z6a7": { redeemed:false, redeemed_at:null },
+  "B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7": { redeemed:false, redeemed_at:null },
+  "R2s3T4u5V6w7X8y9Z0a1B2c3D4e5F6g7": { redeemed:false, redeemed_at:null },
+  "H2i3J4k5L6m7N8o9P0q1R2s3T4u5V6w7": { redeemed:false, redeemed_at:null },
+  "X2y3Z4a5B6c7D8e9F0g1H2i3J4k5L6m7": { redeemed:false, redeemed_at:null },
+  "P2q3R4s5T6u7V8w9X0y1Z2a3B4c5D6e7": { redeemed:false, redeemed_at:null },
+  "F2g3H4i5J6k7L8m9N0o1P2q3R4s5T6u7": { redeemed:false, redeemed_at:null }
+  // Repeat similar pattern until 100 keys
+};
+
+// Merge with localStorage
+let storedKeys = JSON.parse(localStorage.getItem('keys')) || hardcodedKeys;
+localStorage.setItem('keys', JSON.stringify(storedKeys));
+
+const keyInput = document.getElementById('keyInput');
+const redeemBtn = document.getElementById('redeemBtn');
+const checkBtn = document.getElementById('checkBtn');
+const timerDiv = document.getElementById('timer');
+const countdownBox = document.getElementById('countdownBox');
+const downloadBtn = document.getElementById('downloadBtn');
+
+let countdownInterval;
+
+// ===== Countdown =====
+function startCountdown(seconds, startTime){
+  if(countdownInterval) clearInterval(countdownInterval);
+  const end = startTime + seconds*1000;
+  countdownBox.style.display='block';
+  countdownInterval=setInterval(()=>{
+    const now=new Date().getTime();
+    let distance=end-now;
+    if(distance<=0){
+      clearInterval(countdownInterval);
+      countdownBox.textContent="Key expired!";
+      timerDiv.textContent="Timer expired";
+      downloadBtn.style.display='none';
+      return;
+    }
+    const h=Math.floor(distance/(1000*60*60));
+    const m=Math.floor((distance%(1000*60*60))/(1000*60));
+    const s=Math.floor((distance%(1000*60))/1000);
+    timerDiv.textContent=`${h}h ${m}m ${s}s`;
+    countdownBox.textContent=`Time until key expires: ${h}h ${m}m ${s}s`;
+  },1000);
+}
+
+// ===== Check if key expired =====
+function isKeyExpired(key){
+  if(!storedKeys[key].redeemed) return false;
+  const redeemedAt = storedKeys[key].redeemed_at;
+  const now = new Date().getTime();
+  return (now - redeemedAt) >= 24*60*60*1000;
+}
+
+// ===== Redeem key =====
+redeemBtn.addEventListener('click', ()=>{
+  const key = keyInput.value.trim();
+  if(!storedKeys[key]) return alert('Invalid key!');
+  if(storedKeys[key].redeemed && !isKeyExpired(key)) return alert('Key already redeemed!');
+  const now = new Date().getTime();
+  storedKeys[key].redeemed = true;
+  storedKeys[key].redeemed_at = now;
+  localStorage.setItem('keys', JSON.stringify(storedKeys));
+  startCountdown(24*60*60, now);
+  downloadBtn.style.display='block';
+  alert('Key redeemed! Click the "Go to Download" button when ready.');
+});
+
+// ===== Check button =====
+checkBtn.addEventListener('click', ()=>{
+  const key = keyInput.value.trim();
+  if(!storedKeys[key]) return alert('Invalid key!');
+  if(!storedKeys[key].redeemed) return alert('Key not redeemed yet!');
+  if(isKeyExpired(key)){
+    timerDiv.textContent="Timer expired";
+    countdownBox.textContent="Key expired!";
+    downloadBtn.style.display='none';
+  } else {
+    const remaining=24*60*60*1000-(new Date().getTime()-storedKeys[key].redeemed_at);
+    startCountdown(remaining/1000, storedKeys[key].redeemed_at);
+    downloadBtn.style.display='block';
+  }
+});
+
+// ===== Resume countdowns on load =====
+for(let key in storedKeys){
+  if(storedKeys[key].redeemed && !isKeyExpired(key)){
+    startCountdown(24*60*60, storedKeys[key].redeemed_at);
+    downloadBtn.style.display='block';
+  }
+}
+
+// ===== Download button =====
+downloadBtn.addEventListener('click', ()=>{
+  alert('Redirecting to download...');
+  window.location.href='/download.html';
+});
+
+// ===== Background animation =====
+const canvas=document.getElementById('bg');
+const ctx=canvas.getContext('2d');
+canvas.width=window.innerWidth;
+canvas.height=window.innerHeight;
+const particles=[];
+for(let i=0;i<100;i++) particles.push({x:Math.random()*canvas.width, y:Math.random()*canvas.height, vx:(Math.random()-0.5)*0.5, vy:(Math.random()-0.5)*0.5, size:2});
+
+function animate(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(let i=0;i<particles.length;i++){
+    let p=particles[i];
+    p.x+=p.vx; p.y+=p.vy;
+    if(p.x<0||p.x>canvas.width)p.vx*=-1;
+    if(p.y<0||p.y>canvas.height)p.vy*=-1;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.05)';
+    ctx.fill();
+    for(let j=i+1;j<particles.length;j++){
+      let p2=particles[j];
+      const dist=Math.hypot(p.x-p2.x,p.y-p2.y);
+      if(dist<150){
+        ctx.beginPath();
+        ctx.moveTo(p.x,p.y);
+        ctx.lineTo(p2.x,p2.y);
+        ctx.strokeStyle=`rgba(255,255,255,${0.03*(1-dist/150)})`;
+        ctx.stroke();
+      }
+    }
+  }
+  requestAnimationFrame(animate);
+}
+animate();
+window.addEventListener('resize',()=>{canvas.width=window.innerWidth; canvas.height=window.innerHeight;});
+</script>
+
+</body>
+</html>
+
